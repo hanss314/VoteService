@@ -21,7 +21,8 @@ class GuildEntry extends React.Component {
         }
     }
     makeReq(){
-        axios.post("/api/guilds", {gid: this.props.id})
+        console.log(this.props.id);
+        axios.put("/api/"+this.props.id+"/");
     }
 }
 
@@ -29,7 +30,7 @@ class Guilds extends React.Component {
     constructor(props){
         super(props);
         this.state = {guilds: []};
-        axios.get("/api/guilds").then((response) => {
+        axios.get("/api/guilds/").then((response) => {
             this.setState({guilds: response.data});
         });
 

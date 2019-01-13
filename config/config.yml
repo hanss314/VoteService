@@ -1,5 +1,5 @@
 # Oauth
-redirect: "http://127.0.0.1:3000/oauth2"
+redirect: "http://127.0.0.1:3000/oauth2/"
 appid: "525883376062955520"
 
 #Postgres

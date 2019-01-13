@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS guilds;
 DROP TABLE IF EXISTS responses;
 CREATE TABLE guilds (
-  id VARCHAR(20),
+  id VARCHAR(20) UNIQUE,
   deadline TIMESTAMP,
   settings INT
 );

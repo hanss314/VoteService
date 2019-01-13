@@ -1,29 +1,43 @@
-import os
+import uvicorn
 
-from flask import Flask, session, request, redirect, jsonify, render_template
+from starlette.applications import Starlette
+from starlette.responses import HTMLResponse
+from starlette.staticfiles import StaticFiles
+from config import debug
+from blueprints.guilds import guilds_bp
 from blueprints.oauth import oauth_bp
-from blueprints.api import api_bp
+from blueprints.manage import manage_bp
+from blueprints.utils.database import conn
 
-app = Flask(__name__)
 
-app.secret_key = os.urandom(16)
-app.config['SESSION_TYPE'] = 'filesystem'
+
+app = Starlette(debug=debug, template_directory='templates')
+app.mount('/static', StaticFiles(directory='static'), name='static')
+
+#app.secret_key = os.urandom(16)
+# app.config['SESSION_TYPE'] = 'filesystem'
 #app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.mount('/api/guilds', guilds_bp, name='guilds')
+app.mount('/api/{gid}', manage_bp, name='manage')
+app.mount('/oauth2', oauth_bp, name='oauth')
 
-app.register_blueprint(oauth_bp)
-app.register_blueprint(api_bp)
 
+@app.route('/')
+@app.route('/{p:path}')
+def index(request):
+    template = app.get_template('index.html')
+    content = template.render(request=request)
+    return HTMLResponse(content)
 
-@app.route('/', defaults={'_': ''})
-@app.route('/<path:_>')
-def index(_):
-    return render_template('index.html')
+@app.on_event('startup')
+async def create_db_connection():
+    await conn.start()
+
+@app.on_event('shutdown')
+async def close_db_connection():
+    await conn.stop()
 
 
 if __name__ == '__main__':
-    host = '0.0.0.0'
-    port = os.environ.get('PORT', 3000)
-    app.debug = True
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-    app.run(host=host, port=port)
+    uvicorn.run(app, host='0.0.0.0', port=3000)
 

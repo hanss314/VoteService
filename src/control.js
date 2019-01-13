@@ -60,21 +60,19 @@ class Control extends React.Component{
 
     handleSubmit(event) {
         if (this.state.file === null) {
-            axios.post('/api/responses', {
-                gid: this.props.gid,
+            axios.post('/api/'+this.props.gid+'/responses', {
                 author: this.state.author,
                 content: this.state.content
             });
         } else {
             let formData = new FormData();
             const file = new Blob([this.state.file], {type: this.state.file.type});
-            formData.append('gid', this.props.gid);
             formData.append('file', file, this.state.file.name);
             console.log(this.state.file);
             const config = {
                 headers: { 'content-type': 'multipart/form-data' },
             };
-            axios.post('/api/responses/upload', formData, config);
+            axios.post('/api/'+this.props.gid+'/responses/upload', formData, config);
         }
         this.setState({author: '', content: ''});
         event.preventDefault();
