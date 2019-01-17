@@ -19,6 +19,7 @@ app.mount('/static', StaticFiles(directory='static'), name='static')
 #app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.mount('/api/guilds', guilds_bp, name='guilds')
 app.mount('/api/{gid}', manage_bp, name='manage')
+app.mount('/api')
 app.mount('/oauth2', oauth_bp, name='oauth')
 
 

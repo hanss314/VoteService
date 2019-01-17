@@ -34,4 +34,8 @@ class Connection:
     async def fetchval(self, *args, **kwargs):
         return await self.c.fetchval(*args, **kwargs)
 
+    async def executemany(self, *args, **kwargs):
+        return await self.c.executemany(*args, **kwargs)
+
+
 conn = Connection()

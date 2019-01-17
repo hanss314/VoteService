@@ -116,8 +116,9 @@ async def add_response_file(request):
     gid = request.path_params.get('gid', None)
     csvfile = csv.reader(file_content)
     ind = await conn.fetchval(
-        'SELECT COUNT(guild) FROM responses WHERE guild=$1', gid
+        'SELECT MAX(guild) FROM responses WHERE guild=$1', gid
     )
+    ind += 1
     count = 0
     for row in csvfile:
         await conn.execute("""
@@ -128,4 +129,42 @@ async def add_response_file(request):
         count += 1
 
     return PlainTextResponse(str(count))
+
+@manage_bp.route('/responses/{id:int}', methods=['DELETE'])
+async def delete_response(request):
+    gid = request.path_params.get('gid', None)
+    rid = request.path_params.get('id')
+    count = await conn.execute("""
+        DELETE FROM responses
+        WHERE guild=$1 AND ind=$2
+        """, gid, rid
+    )
+    return Response(count.replace('DELETE ', ''), 200)
+
+@manage_bp.route('/responses/{id:int}', methods=['PATCH'])
+async def edit_response(request):
+    gid = request.path_params.get('gid', None)
+    rid = request.path_params.get('id')
+    data = await request.json()
+
+    response = None
+    if 'author' in data:
+        response = await conn.fetchrow("""
+            UPDATE responses SET author=$3
+            WHERE guild=$1 AND ind=$2
+            RETURNING *
+            """, gid, rid, data['author']
+        )
+
+    if 'content' in data:
+        response = await conn.fetchrow("""
+            UPDATE responses SET content=$3
+            WHERE guild=$1 AND ind=$2
+            RETURNING *
+            """, gid, rid, data['content']
+         )
+    if response is None:
+        return PlainTextResponse("Please select a valid field to edit", 400)
+
+    return JSONResponse(dict(response))
 
