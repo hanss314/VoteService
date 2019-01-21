@@ -6,7 +6,6 @@ from requests_oauthlib import OAuth2Session
 from starlette.applications import Starlette
 from starlette.responses import RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from urllib.parse import unquote
 from config import debug, session_key
@@ -31,16 +30,19 @@ else:
 
 oauth_bp = Starlette(debug=debug)
 
-class OauthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+
+def oauth_middleware(f):
+    async def wrapper(request):
         if 'key' not in request.session:
             discord = make_session(request.session, scope='identify guilds')
             authorization_url, state = discord.authorization_url(API_URL + '/oauth2/authorize')
             request.session['oauth2_state'] = state
             return RedirectResponse(unquote(authorization_url), status_code=312)
 
-        response = await call_next(request)
-        return response
+        return await f(request)
+
+    wrapper.__name__ = f.__name__
+    return wrapper
 
 
 oauth_bp.add_middleware(SessionMiddleware, secret_key=session_key)

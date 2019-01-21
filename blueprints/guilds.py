@@ -4,12 +4,11 @@ from starlette.applications import Starlette
 from starlette.responses import Response, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from .oauth import OauthMiddleware, make_session, API_URL
+from .oauth import make_session, API_URL, oauth_middleware
 from .utils.database import conn
 from config import debug, session_key
 
 guilds_bp = Starlette(debug=debug)
-guilds_bp.add_middleware(OauthMiddleware)
 guilds_bp.add_middleware(SessionMiddleware, secret_key=session_key)
 
 
@@ -43,11 +42,13 @@ def manage_server(f):
     return f
 
 @guilds_bp.route('/', methods=['GET'])
+@oauth_middleware
 async def get_guilds(request):
     return JSONResponse(all_guilds(request.session))
 
 
 @guilds_bp.route('/registered', methods=['GET'])
+@oauth_middleware
 async def get_used_guilds(request):
     guilds = all_guilds(request.session)
     gids = {g['id']: g for g in guilds}
@@ -59,6 +60,7 @@ async def get_used_guilds(request):
     return JSONResponse(guilds)
 
 @guilds_bp.route('/registered/{gid}', methods=['GET'])
+@oauth_middleware
 async def get_used_guild(request):
     guilds = all_guilds(request.session)
     gids = {g['id']: g for g in guilds}

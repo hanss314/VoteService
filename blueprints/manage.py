@@ -7,10 +7,9 @@ from io import StringIO
 from starlette.applications import Starlette
 from starlette.responses import Response, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from asyncpg.exceptions import UniqueViolationError
-from .oauth import OauthMiddleware, make_session, API_URL
+from .oauth import make_session, API_URL, oauth_middleware
 from .utils.database import conn
 from config import debug, session_key
 
@@ -23,8 +22,8 @@ last_clear = time.time()
 
 guild_cache = {}
 
-class OwnerMiddleWare(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+def guild_owner(f):
+    async def wrapper(request):
         gid = request.path_params.get('gid', None)
         if gid is None: return Response("", 404)
         guilds = all_guilds(request.session)
@@ -33,12 +32,11 @@ class OwnerMiddleWare(BaseHTTPMiddleware):
         if not guilds[gid]['permissions'] & 32:
             return Response("", 400)
 
-        response = await call_next(request)
+        return await f(request)
 
-        return response
+    wrapper.__name__ = f.__name__
+    return wrapper
 
-manage_bp.add_middleware(OwnerMiddleWare)
-manage_bp.add_middleware(OauthMiddleware)
 manage_bp.add_middleware(SessionMiddleware, secret_key=session_key)
 
 def all_guilds(session):
@@ -61,6 +59,8 @@ def all_guilds(session):
 
 
 @manage_bp.route('/', methods=['PUT'])
+@oauth_middleware
+@guild_owner
 async def add_guilds(request):
     gid = request.path_params.get('gid', None)
     if gid is None: return Response('', 404)
@@ -84,6 +84,8 @@ async def add_guilds(request):
 
 
 @manage_bp.route('/responses', methods=['POST'])
+@oauth_middleware
+@guild_owner
 async def add_response(request):
     data = await request.json()
     gid = request.path_params.get('gid', None)
@@ -102,6 +104,8 @@ async def add_response(request):
     return JSONResponse(response)
 
 @manage_bp.route('/responses/upload', methods=['POST'])
+@oauth_middleware
+@guild_owner
 async def add_response_file(request):
     form = await request.form()
     if 'file' not in form:
@@ -131,6 +135,8 @@ async def add_response_file(request):
     return PlainTextResponse(str(count))
 
 @manage_bp.route('/responses/{id:int}', methods=['DELETE'])
+@oauth_middleware
+@guild_owner
 async def delete_response(request):
     gid = request.path_params.get('gid', None)
     rid = request.path_params.get('id')
@@ -142,6 +148,8 @@ async def delete_response(request):
     return Response(count.replace('DELETE ', ''), 200)
 
 @manage_bp.route('/responses/{id:int}', methods=['PATCH'])
+@oauth_middleware
+@guild_owner
 async def edit_response(request):
     gid = request.path_params.get('gid', None)
     rid = request.path_params.get('id')
