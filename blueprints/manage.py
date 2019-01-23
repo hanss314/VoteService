@@ -95,9 +95,9 @@ async def get_responses(request):
     return JSONResponse([dict(r) for r in data])
 
 @manage_bp.route('/responses/{ind}', methods=['GET'])
-#@oauth_middleware
-#@guild_owner
-async def get_responses(request):
+@oauth_middleware
+@guild_owner
+async def get_response(request):
     gid = request.path_params.get('gid', None)
     ind = request.path_params.get('ind', None)
     try:
