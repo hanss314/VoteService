@@ -1,5 +1,6 @@
 import React from 'react';
 import axios from 'axios';
+import Responses from './responses';
 
 class Control extends React.Component{
     constructor(props){
@@ -16,6 +17,7 @@ class Control extends React.Component{
     render(){
         const title = this.state.guild === undefined ? '' : this.state.guild.name;
         return (
+            <div>
             <form onSubmit={this.handleSubmit} encType="multipart/form-data">
             <h2>{title}</h2>
             <label>
@@ -45,6 +47,9 @@ class Control extends React.Component{
             </label><br />
             <input type="submit" value="Submit" />
             </form>
+            <Responses gid={this.props.gid} />
+            </div>
+
         );
     }
     authorChange(event) {
