@@ -1,5 +1,6 @@
 import time
 import csv
+import json
 
 from datetime import datetime
 from io import StringIO
@@ -83,25 +84,33 @@ async def add_guilds(request):
     return JSONResponse({'gid': gid})
 
 
-@manage_bp.route('/responses', methods=['POST'])
+@manage_bp.route('/responses', methods=['GET'])
 @oauth_middleware
 @guild_owner
-async def add_response(request):
-    data = await request.json()
+async def get_responses(request):
     gid = request.path_params.get('gid', None)
-    author = data.get('author', '')
-    content = data.get('content', '')
-    ind = await conn.fetchval(
-        'SELECT COUNT(guild) FROM responses WHERE guild=$1', gid
+    data = await conn.fetch(
+        'SELECT ind, author, content FROM responses WHERE guild=$1', gid
     )
-    await conn.execute("""
-        INSERT INTO responses (guild, ind, author, content)
-        VALUES ($1, $2, $3, $4)
-        """, gid, ind, author, content
-    )
+    return JSONResponse([dict(r) for r in data])
 
-    response = {'gid': gid, 'ind': ind, 'author': author, 'content': content}
-    return JSONResponse(response)
+@manage_bp.route('/responses/{ind}', methods=['GET'])
+#@oauth_middleware
+#@guild_owner
+async def get_responses(request):
+    gid = request.path_params.get('gid', None)
+    ind = request.path_params.get('ind', None)
+    try:
+        ind = int(ind)
+    except ValueError:
+        return Response('', 404)
+
+    data = await conn.fetchrow(
+        '''SELECT ind, author, content FROM responses 
+           WHERE guild=$1 AND ind=$2''', gid, ind
+    )
+    if data is None: return Response('', 404)
+    return JSONResponse(dict(data))
 
 @manage_bp.route('/responses/upload', methods=['POST'])
 @oauth_middleware
@@ -176,3 +185,22 @@ async def edit_response(request):
 
     return JSONResponse(dict(response))
 
+@manage_bp.route('/responses', methods=['POST'])
+@oauth_middleware
+@guild_owner
+async def add_response(request):
+    data = await request.json()
+    gid = request.path_params.get('gid', None)
+    author = data.get('author', '')
+    content = data.get('content', '')
+    ind = await conn.fetchval(
+        'SELECT MAX(ind) FROM responses WHERE guild=$1', gid
+    )
+    await conn.execute("""
+        INSERT INTO responses (guild, ind, author, content)
+        VALUES ($1, $2, $3, $4)
+        """, gid, ind+1, author, content
+    )
+
+    response = {'gid': gid, 'ind': ind, 'author': author, 'content': content}
+    return JSONResponse(response)
