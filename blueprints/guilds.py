@@ -5,7 +5,7 @@ from starlette.responses import Response, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from .oauth import make_session, API_URL, oauth_middleware
-from .utils.database import conn
+from .utils.database import pool
 from config import debug, session_key
 
 guilds_bp = Starlette(debug=debug)
@@ -52,10 +52,11 @@ async def get_guilds(request):
 async def get_used_guilds(request):
     guilds = all_guilds(request.session)
     gids = {g['id']: g for g in guilds}
-    guilds = [gids[i[0]] for i in await conn.fetch(
-        'SELECT id FROM guilds WHERE id IN $1',
-        list(gids.keys())
-    )]
+    async with pool.acquire() as conn:
+        guilds = [gids[i[0]] for i in await conn.fetch(
+            'SELECT id FROM guilds WHERE id IN $1',
+            list(gids.keys())
+        )]
 
     return JSONResponse(guilds)
 
@@ -64,10 +65,11 @@ async def get_used_guilds(request):
 async def get_used_guild(request):
     guilds = all_guilds(request.session)
     gids = {g['id']: g for g in guilds}
-    guild = await conn.fetchval(
-        'SELECT id FROM guilds WHERE id = $1 LIMIT 1',
-        request.path_params['gid']
-    )
+    async with pool.acquire() as conn:
+        guild = await conn.fetchval(
+            'SELECT id FROM guilds WHERE id = $1 LIMIT 1',
+            request.path_params['gid']
+        )
 
     if guild is None: return Response('', 404)
 

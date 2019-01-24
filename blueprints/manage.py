@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from asyncpg.exceptions import UniqueViolationError
 from .oauth import make_session, API_URL, oauth_middleware
-from .utils.database import conn
+from .utils.database import pool
 from config import debug, session_key
 
 manage_bp = Starlette(debug=debug)
@@ -72,10 +72,11 @@ async def add_guilds(request):
         return Response("", 400)
 
     try:
-        status = await conn.execute(
-            'INSERT INTO guilds (id, deadline) VALUES ($1, $2)',
-            gid, datetime.utcnow()
-        )
+        async with pool.acquire() as conn:
+            status = await conn.execute(
+                'INSERT INTO guilds (id, deadline) VALUES ($1, $2)',
+                gid, datetime.utcnow()
+            )
     except UniqueViolationError:
         return PlainTextResponse("Guild already added", 400)
 
@@ -88,9 +89,10 @@ async def add_guilds(request):
 @guild_owner
 async def get_responses(request):
     gid = request.path_params.get('gid', None)
-    data = await conn.fetch(
-        'SELECT ind, author, content FROM responses WHERE guild=$1', gid
-    )
+    async with pool.acquire() as conn:
+        data = await conn.fetch(
+            'SELECT ind, author, content FROM responses WHERE guild=$1', gid
+        )
     return JSONResponse([dict(r) for r in data])
 
 @manage_bp.route('/responses/{ind:int}', methods=['GET'])
@@ -100,10 +102,11 @@ async def get_response(request):
     gid = request.path_params.get('gid', None)
     ind = request.path_params.get('ind', None)
 
-    data = await conn.fetchrow(
-        '''SELECT ind, author, content FROM responses 
-           WHERE guild=$1 AND ind=$2''', gid, ind
-    )
+    async with pool.acquire() as conn:
+        data = await conn.fetchrow(
+            '''SELECT ind, author, content FROM responses 
+               WHERE guild=$1 AND ind=$2''', gid, ind
+        )
     if data is None: return Response('', 404)
     return JSONResponse(dict(data))
 
@@ -123,18 +126,19 @@ async def add_response_file(request):
     file_content = StringIO((await file.read()).decode('utf-8'))
     gid = request.path_params.get('gid', None)
     csvfile = csv.reader(file_content)
-    ind = await conn.fetchval(
-        'SELECT MAX(guild) FROM responses WHERE guild=$1', gid
-    )
-    ind += 1
-    count = 0
-    for row in csvfile:
-        await conn.execute("""
-            INSERT INTO responses (guild, ind, author, content)
-            VALUES ($1, $2, $3, $4)
-            """, gid, ind+count, row[0], row[1]
+    async with pool.acquire() as conn:
+        ind = await conn.fetchval(
+            'SELECT MAX(guild) FROM responses WHERE guild=$1', gid
         )
-        count += 1
+        ind += 1
+        count = 0
+        for row in csvfile:
+            await conn.execute("""
+                INSERT INTO responses (guild, ind, author, content)
+                VALUES ($1, $2, $3, $4)
+                """, gid, ind+count, row[0], row[1]
+            )
+            count += 1
 
     return PlainTextResponse(str(count))
 
@@ -144,11 +148,12 @@ async def add_response_file(request):
 async def delete_response(request):
     gid = request.path_params.get('gid', None)
     rid = request.path_params.get('id')
-    count = await conn.execute("""
-        DELETE FROM responses
-        WHERE guild=$1 AND ind=$2
-        """, gid, rid
-    )
+    async with pool.acquire() as conn:
+        count = await conn.execute("""
+            DELETE FROM responses
+            WHERE guild=$1 AND ind=$2
+            """, gid, rid
+        )
     return Response(count.replace('DELETE ', ''), 200)
 
 @manage_bp.route('/responses/{id:int}', methods=['PATCH'])
@@ -160,21 +165,22 @@ async def edit_response(request):
     data = await request.json()
 
     response = None
-    if 'author' in data:
-        response = await conn.fetchrow("""
-            UPDATE responses SET author=$3
-            WHERE guild=$1 AND ind=$2
-            RETURNING *
-            """, gid, rid, data['author']
-        )
+    async with pool.acquire() as conn:
+        if 'author' in data:
+            response = await conn.fetchrow("""
+                UPDATE responses SET author=$3
+                WHERE guild=$1 AND ind=$2
+                RETURNING *
+                """, gid, rid, data['author']
+            )
 
-    if 'content' in data:
-        response = await conn.fetchrow("""
-            UPDATE responses SET content=$3
-            WHERE guild=$1 AND ind=$2
-            RETURNING *
-            """, gid, rid, data['content']
-         )
+        if 'content' in data:
+            response = await conn.fetchrow("""
+                UPDATE responses SET content=$3
+                WHERE guild=$1 AND ind=$2
+                RETURNING *
+                """, gid, rid, data['content']
+             )
     if response is None:
         return PlainTextResponse("Please select a valid field to edit", 400)
 
@@ -188,14 +194,15 @@ async def add_response(request):
     gid = request.path_params.get('gid', None)
     author = data.get('author', '')
     content = data.get('content', '')
-    ind = await conn.fetchval(
-        'SELECT MAX(ind) FROM responses WHERE guild=$1', gid
-    )
-    await conn.execute("""
-        INSERT INTO responses (guild, ind, author, content)
-        VALUES ($1, $2, $3, $4)
-        """, gid, ind+1, author, content
-    )
+    async with pool.acquire() as conn:
+        ind = await conn.fetchval(
+            'SELECT MAX(ind) FROM responses WHERE guild=$1', gid
+        )
+        await conn.execute("""
+            INSERT INTO responses (guild, ind, author, content)
+            VALUES ($1, $2, $3, $4)
+            """, gid, ind+1, author, content
+        )
 
     response = {'gid': gid, 'ind': ind, 'author': author, 'content': content}
     return JSONResponse(response)

@@ -7,8 +7,7 @@ from config import debug
 from blueprints.guilds import guilds_bp
 from blueprints.oauth import oauth_bp
 from blueprints.manage import manage_bp
-from blueprints.utils.database import conn
-
+from blueprints.utils.database import pool
 
 
 app = Starlette(debug=debug, template_directory='templates')
@@ -31,11 +30,11 @@ def index(request):
 
 @app.on_event('startup')
 async def create_db_connection():
-    await conn.start()
+    await pool.start()
 
 @app.on_event('shutdown')
 async def close_db_connection():
-    await conn.stop()
+    await pool.stop()
 
 
 if __name__ == '__main__':

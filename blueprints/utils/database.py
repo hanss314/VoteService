@@ -7,12 +7,12 @@ with open('config/creds.yml', 'r') as creds_file:
 with open('config/config.yml', 'r') as cfg_file:
     config = yaml.safe_load(cfg_file)
 
-class Connection:
+class Pool:
     def __init__(self):
         self.c = None
 
     async def start(self):
-        self.c = await asyncpg.connect(
+        self.c = await asyncpg.create_pool(
             database=config['pgdb'],
             user=config['pguser'],
             host=config['pghost'],
@@ -21,21 +21,38 @@ class Connection:
 
     async def stop(self):
         await self.c.close()
+    """
+    def execute(self, *args, **kwargs):
+        return self.c.execute(*args, **kwargs)
 
-    async def execute(self, *args, **kwargs):
-        return await self.c.execute(*args, **kwargs)
+    def fetch(self, *args, **kwargs):
+        return self.c.fetch(*args, **kwargs)
 
-    async def fetch(self, *args, **kwargs):
-        return await self.c.fetch(*args, **kwargs)
+    def fetchrow(self, *args, **kwargs):
+        return self.c.fetchrow(*args, **kwargs)
 
-    async def fetchrow(self, *args, **kwargs):
-        return await self.c.fetchrow(*args, **kwargs)
+    def fetchval(self, *args, **kwargs):
+        return self.c.fetchval(*args, **kwargs)
 
-    async def fetchval(self, *args, **kwargs):
-        return await self.c.fetchval(*args, **kwargs)
+    def executemany(self, *args, **kwargs):
+        return self.c.executemany(*args, **kwargs)
+    
+    def transaction(self, *args, **kwargs):
+        return self.c.transaction(*args, **kwargs)
 
-    async def executemany(self, *args, **kwargs):
-        return await self.c.executemany(*args, **kwargs)
+    def cursor(self, *args, **kwargs):
+        return self.c.cursor(*args, **kwargs)
+
+    def prepare(self, *args, **kwargs):
+        return self.c.prepare(*args, **kwargs)
+        """
+    def acquire(self, *args, **kwargs):
+        return self.c.acquire(*args, **kwargs)
+
+    def release(self, *args, **kwargs):
+        return self.c.release(*args, **kwargs)
 
 
-conn = Connection()
+
+
+pool = Pool()
