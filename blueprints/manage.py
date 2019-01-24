@@ -52,6 +52,7 @@ def all_guilds(session):
     token = session.get('oauth2_token')
     discord = make_session(session, token=token)
     guilds = discord.get(API_URL + '/users/@me/guilds').json()
+    if isinstance(guilds, dict): return []
     guild_cache[key] = guilds
     session['last_guild_check'] = now
     # print(guilds)
@@ -130,6 +131,7 @@ async def add_response_file(request):
         ind = await conn.fetchval(
             'SELECT MAX(guild) FROM responses WHERE guild=$1', gid
         )
+        if ind is None: ind = -1
         ind += 1
         count = 0
         for row in csvfile:
@@ -160,7 +162,7 @@ async def delete_response(request):
 @oauth_middleware
 @guild_owner
 async def edit_response(request):
-    gid = request.path_params.get('gid', None)
+    gid = request.path_params.get('gid')
     rid = request.path_params.get('id')
     data = await request.json()
 
@@ -194,10 +196,12 @@ async def add_response(request):
     gid = request.path_params.get('gid', None)
     author = data.get('author', '')
     content = data.get('content', '')
+    if not (author and content): return Response('', 400)
     async with pool.acquire() as conn:
         ind = await conn.fetchval(
             'SELECT MAX(ind) FROM responses WHERE guild=$1', gid
         )
+        if ind is None: ind = -1
         await conn.execute("""
             INSERT INTO responses (guild, ind, author, content)
             VALUES ($1, $2, $3, $4)
