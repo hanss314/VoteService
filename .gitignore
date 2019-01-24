@@ -13,6 +13,7 @@ node_modules
 # production
 /build
 /static
+__pycache__
 
 # misc
 .DS_Store
