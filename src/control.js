@@ -13,6 +13,7 @@ class Control extends React.Component{
         axios.get("/api/guilds/registered/"+this.props.gid).then((response) => {
             this.setState({guild: response.data});
         });
+        this.responses = (<Responses gid={this.props.gid} />);
     }
     render(){
         const title = this.state.guild === undefined ? '' : this.state.guild.name;
@@ -47,7 +48,7 @@ class Control extends React.Component{
             </label><br />
             <input type="submit" value="Submit" />
             </form>
-            <Responses gid={this.props.gid} />
+            {this.responses}
             </div>
 
         );
@@ -80,6 +81,7 @@ class Control extends React.Component{
             axios.post('/api/'+this.props.gid+'/responses/upload', formData, config);
         }
         this.setState({author: '', content: ''});
+        this.responses.update();
         event.preventDefault();
     }
 }

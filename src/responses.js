@@ -62,9 +62,7 @@ class Responses extends React.Component{
     constructor(props){
         super(props);
         this.state = {responses: []};
-        axios.get("/api/"+this.props.gid+"/responses").then((response) => {
-            this.setState({responses: response.data});
-        });
+        this.update()
     }
     render(){
         const responses = this.state.responses.map((r) => {
@@ -85,6 +83,11 @@ class Responses extends React.Component{
     onDelete(i){
         const newResponses = this.state.responses.filter((response) => response.ind !== i);
         this.setState({responses: newResponses});
+    }
+    update(){
+        axios.get("/api/"+this.props.gid+"/responses").then((response) => {
+            this.setState({responses: response.data});
+        });
     }
 }
 

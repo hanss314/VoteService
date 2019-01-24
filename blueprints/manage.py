@@ -129,7 +129,7 @@ async def add_response_file(request):
     csvfile = csv.reader(file_content)
     async with pool.acquire() as conn:
         ind = await conn.fetchval(
-            'SELECT MAX(guild) FROM responses WHERE guild=$1', gid
+            'SELECT MAX(ind) FROM responses WHERE guild=$1', gid
         )
         if ind is None: ind = -1
         ind += 1
