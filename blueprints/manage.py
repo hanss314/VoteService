@@ -1,7 +1,8 @@
 import time
 import csv
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from dateutil import parser as dateparser
 from io import StringIO
 
 from starlette.applications import Starlette
@@ -65,17 +66,12 @@ def all_guilds(session):
 async def add_guilds(request):
     gid = request.path_params.get('gid', None)
     if gid is None: return Response('', 404)
-    guilds = all_guilds(request.session)
-    print(guilds)
-    guilds = {g['id']: g for g in guilds}
-    if gid not in guilds: return Response('', 403)
-    if not guilds[gid]['permissions'] & 32:
-        return Response("", 400)
 
     try:
         async with pool.acquire() as conn:
             status = await conn.execute(
-                'INSERT INTO guilds (id, deadline) VALUES ($1, $2)',
+                'INSERT INTO guilds (id, deadline, length, canvote) '
+                'VALUES ($1, $2, 0, FALSE)',
                 gid, datetime.utcnow()
             )
     except UniqueViolationError:
@@ -83,6 +79,84 @@ async def add_guilds(request):
 
     print(status)
     return JSONResponse({'gid': gid})
+
+@manage_bp.route('/size', methods=['PUT'])
+@oauth_middleware
+@guild_owner
+async def set_slide_size(request):
+    gid = request.path_params.get('gid', None)
+    if gid is None: return Response('', 404)
+    data = await request.json()
+    if 'size' not in data: return Response('', 404)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE guilds SET length=$2 WHERE id=$1',
+            gid, data['size']
+        )
+
+    return JSONResponse({'size': data['size']})
+
+@manage_bp.route('/size', methods=['GET'])
+@oauth_middleware
+@guild_owner
+async def set_slide_size(request):
+    gid = request.path_params.get('gid', None)
+    if gid is None: return Response('', 404)
+    async with pool.acquire() as conn:
+        size = await conn.fetchval(
+            'SELECT length FROM guilds WHERE id=$1',
+            gid
+        )
+
+    return JSONResponse({'size': size})
+
+
+@manage_bp.route('/start', methods=['POST'])
+@oauth_middleware
+@guild_owner
+async def start_voting(request):
+    gid = request.path_params.get('gid', None)
+    if gid is None: return Response('', 404)
+    data = await request.json()
+    async with pool.acquire() as conn:
+        if 'deadline' in data:
+            try:
+                deadline = dateparser.parse(data['deadline'])
+            except ValueError:
+                return Response('Invalid date format', 401)
+        else:
+            deadline = await conn.fetchval(
+                'SELECT deadline FROM guilds WHERE id=$1',
+                gid
+            )
+            if deadline < datetime.utcnow():
+                deadline += timedelta(days=7)
+
+        await conn.execute(
+            'UPDATE guilds SET deadline=$2, canvote=TRUE WHERE id=$1',
+            gid, deadline
+        )
+
+    return JSONResponse({'deadline': deadline.isoformat()})
+
+
+@manage_bp.route('/deadline', methods=['POST'])
+@oauth_middleware
+@guild_owner
+async def set_deadline(request):
+    gid = request.path_params.get('gid', None)
+    if gid is None: return Response('', 404)
+    data = await request.json()
+    if 'deadline' not in data: return Response('', 400)
+    deadline = data['deadline']
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE guilds SET deadline=$2 WHERE id=$1',
+            gid, deadline
+        )
+
+    return JSONResponse({'deadline': deadline.isoformat()})
+
 
 
 @manage_bp.route('/responses', methods=['GET'])

@@ -7,6 +7,7 @@ from config import debug
 from blueprints.guilds import guilds_bp
 from blueprints.oauth import oauth_bp
 from blueprints.manage import manage_bp
+from blueprints.voting import voting_bp
 from blueprints.utils.database import pool
 
 
@@ -17,6 +18,7 @@ app.mount('/static', StaticFiles(directory='static'), name='static')
 # app.config['SESSION_TYPE'] = 'filesystem'
 #app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.mount('/api/guilds', guilds_bp, name='guilds')
+app.mount('/api/vote', voting_bp, name='voting')
 app.mount('/api/{gid}', manage_bp, name='manage')
 app.mount('/oauth2', oauth_bp, name='oauth')
 
